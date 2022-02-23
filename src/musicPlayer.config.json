@@ -1,0 +1,19 @@
+{
+    "songs": [
+        {
+            "musicTitle":"HEY",
+            "musicTrack": "music/hey.mp3",
+            "coverPhoto": "images/hey.jpg"
+        },
+        {
+            "musicTitle":"SUMMER",
+            "musicTrack": "music/summer.mp3",
+            "coverPhoto": "images/summer.jpg"
+        },
+        {
+            "musicTitle":"UKULELE",
+            "musicTrack": "music/ukulele.mp3",
+            "coverPhoto": "images/ukulele.jpg"
+        }
+    ]
+}
