@@ -1,132 +1,114 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import "./MusicPlayer.css";
-import SongList from '../../musicPlayer.config.json';
+import SongList from "../../musicPlayer.config.json";
+import MusicTitle from "../MusicTitle/MusicTitle";
+import MusicContainer from "../MusicContainer/MusicContainer";
+import React from "react";
+
+const getSongInfo = (songIndex: number, songs: ISong[]) => {
+  return songs[songIndex];
+};
 
 export interface ISong {
-    musicTitle: string;
-    coverPhoto: string;
-    musicTrack: string;
+  musicTitle: string;
+  coverPhoto: string;
+  musicTrack: string;
 }
+
+export interface IMusicPlayerContext {
+  musicPlayerState: boolean;
+  musicTitle: string;
+  musicTrack: string;
+  songIndex: number;
+  songs: ISong[];
+  percentage: number;
+  coverPhoto: string;
+}
+
+const initialState: IMusicPlayerContext = {
+  musicPlayerState: false,
+  songIndex: 0,
+  songs: SongList.songs,
+
+  musicTitle: "",
+  musicTrack: "",
+  coverPhoto: "",
+  percentage: 0,
+};
+
+export const MusicPlayerActions = {
+  NEXT_SONG: "NEXT_SONG",
+  PREV_SONG: "PREV_SONG",
+  PLAY: "PLAY",
+  PAUSE: "PAUSE",
+  SET_PERCENTAGE: "SET_PERCENTAGE",
+  INITIATE_MUSIC_PLAYER: "INTIATE_MUSIC_PLAYER",
+};
+
+const reducer = (
+  currentState: IMusicPlayerContext,
+  action: any
+): IMusicPlayerContext => {
+  let newSongIndex;
+  const { songs, songIndex } = currentState;
+  switch (action.type) {
+    case MusicPlayerActions.NEXT_SONG:
+      newSongIndex = songIndex + 1;
+      if (newSongIndex >= songs.length) {
+        newSongIndex = newSongIndex % songs.length;
+      }
+      return {
+        ...currentState,
+        songIndex: newSongIndex,
+        ...getSongInfo(newSongIndex, songs),
+      };
+    case MusicPlayerActions.PREV_SONG:
+      newSongIndex = songIndex - 1;
+      if (newSongIndex === -1) {
+        newSongIndex = songs.length - 1;
+      }
+      return { ...currentState, songIndex: newSongIndex };
+    case MusicPlayerActions.PLAY:
+      return { ...currentState, musicPlayerState: true };
+    case MusicPlayerActions.PAUSE:
+      return { ...currentState, musicPlayerState: false };
+    case MusicPlayerActions.SET_PERCENTAGE:
+      const { currentTime, duration } = action;
+      return { ...currentState, percentage: (currentTime / duration) * 100 };
+    case MusicPlayerActions.INITIATE_MUSIC_PLAYER:
+      return { ...currentState, ...getSongInfo(songIndex, songs) };
+    default:
+      return currentState;
+  }
+};
+
+export const MusicPlayerContext = React.createContext<any>({
+  state: {},
+  dispatch: (data: any) => {},
+});
 
 const MusicPlayer = () => {
+  const [state, dispatch] = useReducer(reducer, initialState);
 
-    const [songs, setSongs] = useState<ISong[]>(SongList.songs)
+  useEffect(() => {
+    dispatch({ type: MusicPlayerActions.INITIATE_MUSIC_PLAYER });
+  }, [dispatch]);
 
-    const [songIndex, setSongIndex] = useState<number>(0);
-
-    const [percentage, setPercentage] = useState<number>(0);
-
-    const [musicPlayerState, setMusicPlayerState] = useState<boolean>(false);
-
-    const speaker = useRef<any>();
-
-    const currentPlayTime = useMemo(() => {
-        if (speaker.current) {
-            let seconds = percentage / 100 * speaker.current.duration;
-            seconds = Math.round(seconds);
-            if (isNaN(seconds)) {
-                return "";
-            }
-            return `${seconds} sec / ${Math.round(speaker.current.duration)} sec`;
-        }
-        else {
-            return ``;
-        }
-
-    }, [percentage])
-
-
-    const onTimeUpdate = useCallback((audioEvent) => {
-        const { currentTime, duration } = audioEvent.srcElement;
-        setPercentage(currentTime / duration * 100);
-    }, [])
-
-
-    const play = useCallback(() => {
-        console.log("play");
-        speaker.current?.play();
-        setMusicPlayerState(true);
-    }, [])
-
-    const pause = useCallback(() => {
-        speaker.current?.pause();
-        setMusicPlayerState(false);
-    }, [])
-
-    const prev = useCallback(() => {
-        let tempSongIndex = songIndex - 1;
-        if (tempSongIndex === -1) {
-            tempSongIndex = songs.length - 1;
-        }
-        setSongIndex(tempSongIndex);
-        //play();
-    }, [songIndex, songs.length]);
-
-    const next = useCallback(() => {
-        console.log("next triggered")
-        let tempSongIndex = songIndex + 1;
-        if (tempSongIndex >= songs.length) {
-            tempSongIndex = tempSongIndex % songs.length;
-        }
-        setSongIndex(tempSongIndex);
-        //play();
-    }, [songIndex, songs.length])
-
-
-    const addAudioEvents = useCallback(() => {
-        speaker.current?.addEventListener("timeupdate", onTimeUpdate)
-        speaker.current?.addEventListener("ended", next)
-    }, [next, onTimeUpdate])
-
-    const onSpeakerReady = useCallback((audioElement) => {
-        speaker.current = audioElement;
-        addAudioEvents();
-    }, [addAudioEvents])
-
-    const { musicTitle, musicTrack, coverPhoto } = useMemo(() => {
-        return songs[songIndex];
-    }, [songs, songIndex])
-
-    const playFromClickedPosition = useCallback((el) => {
-        const totalWidth = el.currentTarget.clientWidth;
-        const clickX = el.nativeEvent.offsetX;
-        speaker.current.currentTime = (clickX / totalWidth) * speaker.current.duration;
-    }, [])
-
-    return <>
-        <h1>Music Player</h1>
-        <div className="music-container" id="music-container">
-            <div className={`music-info ${musicPlayerState ? "music-info-show" : "music-info-hide"}`}>
-                <h4 id="title">{musicTitle}</h4>
-                <div className="progress-container" id="progress-container" onClick={playFromClickedPosition}>
-                    <div className="progress" id="progress" style={{ width: `${percentage}%` }}></div>
-                </div>
-                <div>{currentPlayTime}</div>
-            </div>
-
-            <audio autoPlay={true} ref={onSpeakerReady} src={musicTrack} id="audio"></audio>
-
-            <div className="img-container">
-                <img src={coverPhoto} alt="music-cover" id="cover" />
-            </div>
-            <div className="navigation">
-                <button onClick={prev} id="prev" className="action-btn">
-                    <i className="fas fa-backward"></i>
-                </button>
-
-                {!musicPlayerState ? <button onClick={play} id="play" className="action-btn action-btn-big">
-                    <i className={`fas fa-play`}></i>
-                </button> :
-                    <button onClick={pause} id="play" className="action-btn action-btn-big">
-                        <i className={`fas fa-pause`}></i>
-                    </button>}
-
-                <button onClick={next} id="next" className="action-btn">
-                    <i className="fas fa-forward"></i>
-                </button>
-            </div>
-        </div>
+  return (
+    <>
+      <MusicPlayerContext.Provider value={{ state, dispatch }}>
+        <MusicTitle></MusicTitle>
+        <MusicContainer></MusicContainer>
+      </MusicPlayerContext.Provider>
     </>
-}
+  );
+};
 
 export default MusicPlayer;
